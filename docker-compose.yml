@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: ads-postgres
+    environment:
+      POSTGRES_USER: ads
+      POSTGRES_PASSWORD: ads_dev_password
+      POSTGRES_DB: ads_model_maker
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ads -d ads_model_maker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for task queue and caching
+  redis:
+    image: redis:7-alpine
+    container_name: ads-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO for object storage (S3-compatible)
+  minio:
+    image: minio/minio:latest
+    container_name: ads-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ads_minio
+      MINIO_ROOT_PASSWORD: ads_minio_password
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Python ML API service
+  ml-api:
+    build:
+      context: ./ads-ml
+      dockerfile: Dockerfile
+    container_name: ads-ml-api
+    environment:
+      DATABASE_URL: postgresql://ads:ads_dev_password@postgres:5432/ads_model_maker
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ads_minio
+      MINIO_SECRET_KEY: ads_minio_password
+      MINIO_BUCKET: ads-models
+    volumes:
+      - ./ads-ml:/app
+      - model_data:/app/models
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command: uvicorn ads_ml.services.api:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery worker for training jobs
+  worker:
+    build:
+      context: ./ads-ml
+      dockerfile: Dockerfile
+    container_name: ads-worker
+    environment:
+      DATABASE_URL: postgresql://ads:ads_dev_password@postgres:5432/ads_model_maker
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ads_minio
+      MINIO_SECRET_KEY: ads_minio_password
+      MINIO_BUCKET: ads-models
+    volumes:
+      - ./ads-ml:/app
+      - model_data:/app/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A ads_ml.workers.tasks worker --loglevel=info --concurrency=2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Go Agent (for local development/testing)
+  agent:
+    build:
+      context: ./ads-agent
+      dockerfile: Dockerfile
+    container_name: ads-agent
+    environment:
+      ADS_SERVER_HOST: "0.0.0.0"
+      ADS_SERVER_PORT: "8484"
+      ADS_BACKEND_URL: "http://ml-api:8000"
+    volumes:
+      - agent_data:/root/.ads-agent
+      - model_data:/models:ro
+    ports:
+      - "8484:8484"
+    depends_on:
+      - ml-api
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  model_data:
+  agent_data:
+
+networks:
+  default:
+    name: ads-network

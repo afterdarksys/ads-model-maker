@@ -1,0 +1,63 @@
+- Design a Python-based AI Model making toolkit
+- Support ingesting as many image,document,database formsts as possible
+- Use this data ingested to create a model based on
+   - a. amount of data
+   - b. number of parameters
+   - c. how large it is
+   - d. how much data it consumes at rest and in ram
+   - e. tools to add,update,remove,query data to the model
+- a JSON config file
+- Have intelligence to create:
+    - a. IT Models
+    - b. Change Management Models
+    - c. Documentation, Data learning models
+    - e. learning from image data
+    - f. OCR / text extract
+- Machine-learning based model learning
+- Create data that can be imported to:
+	- OpenAI / Anthropic
+	- S3 / Oracle / Google Cloud Storage / Azure Block Storage
+- Read off ext3/4, HFS+, NTFS,WinFS,FAT32/exFAT/vFAT
+- tools that allow serving the model
+- tools to test the newly made models API endpoint
+- Enhance x 50 - figure out what I didn't think of
+- FastCGI / Web Interface / API
+- If this is good, we can license it in our aiserve.farm platform and people can send us their data
+- pick options
+- wait
+- get back a model thats pre-trained that they can use immediately?
+- use hugging face as the foundation
+   - we have our own private repos
+- This all gets hidden behind the scene
+- Models done training -> pull and serve via dark storage
+- Users never see huggings
+- Can be built into our aiserve.farm platform
+
+Can this be monetized?
+
+- Basic
+- Indy developer
+- Legal and Compliance
+- Medical, HIPPA
+- Government
+- Finance
+- Custom
+
+7 plans
+
+please set prices if you think its realistic:
+
+- user select data size
+- user slects training time frame
+- price computes
+- user pays
+- Training start
+- Ability to check status
+- Set how many passes
+- Allow the use of 3rd party AI for inference?
+
+if this is viable: 
+1. cd /Users/ryan/development/ads-model-maker/
+2. mkdir -p plans
+3. create planning documents (*.md) files in /Users/ryan/development/ads-model-maker/plans/
+
